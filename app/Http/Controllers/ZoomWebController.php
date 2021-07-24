@@ -1,14 +1,37 @@
 <?php
 
-namespace App\Http\Controllers\API;
+namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use GuzzleHttp\Client;
-use Illuminate\Http\Request;
 use http\Exception;
+use Illuminate\Http\Request;
+use Session;
 
-class ZoomController extends Controller
+class ZoomWebController extends Controller
 {
+    public $neocodeZoomAuth;
+
+    public function listMeetings(Request $request)
+    {
+        try {
+            $this->neocodeZoomAuth = session()->get('neocodeZoomAuth');
+            $zoom_code = $request->code;
+            if (!$this->neocodeZoomAuth) {
+                $auth = $this->getAccessTokenOauth2($zoom_code);
+                session()->put('neocodeZoomAuth', $auth);
+                $this->neocodeZoomAuth = $auth;
+            }
+
+            // Auth Token
+            $token = $this->neocodeZoomAuth['access_token'];
+            $data = $this->listZoomMeetings($token);
+
+            return view('meetings.list', ['data' => $data->meetings]);
+
+        } catch (Exception $e) {
+            echo $e->getMessage();
+        }
+    }
 
     public function getAccessTokenOauth2($accessCode)
     {
@@ -24,43 +47,21 @@ class ZoomController extends Controller
                     "redirect_uri" => env('REDIRECT_URI')
                 ],
             ]);
-            $token = json_decode($response->getBody()->getContents(), true);
-            return $token;
+            return $token = json_decode($response->getBody()->getContents(), true);
         } catch (Exception $e) {
             echo $e->getMessage();
         }
     }
 
-    public function getCallBackAccessCode(Request $request)
-    {
-        $token = $this->getAccessTokenOauth2($request->code);
-        return $this->listZoomMeetings($token['access_token']);
-    }
-
-
     public function listZoomMeetings($token)
     {
-
         $client = new Client(['base_uri' => 'https://api.zoom.us']);
-
-
         $response = $client->request('GET', '/v2/users/me/meetings', [
             "headers" => [
                 "Authorization" => "Bearer $token"
             ]
         ]);
 
-        $data = json_decode($response->getBody());
-
-        return $response->getBody();
-
-        if (!empty($data)) {
-            foreach ($data->meetings as $d) {
-                $topic = $d->topic;
-                $join_url = $d->join_url;
-                echo "<h3>Topic: $topic</h3>";
-                echo "Join URL: $join_url";
-            }
-        }
+        return $data = json_decode($response->getBody());
     }
 }

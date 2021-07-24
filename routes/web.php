@@ -15,4 +15,9 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
+
+});
+
+Route::group(['prefix'=>'zoom','as'=>'zoom.'], function(){
+    Route::get('/list/{code}', ['as' => 'index', 'uses' => 'App\Http\Controllers\ZoomWebController@listMeetings']);
 });
